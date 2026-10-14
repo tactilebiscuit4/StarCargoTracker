@@ -1,5 +1,3 @@
-# Star Cargo Tracker
-
 <p align="center">
   <img src="docs/banner.svg" alt="STAR CARGO TRACKER, in the block lettering of the program's banner" width="608">
 </p>
