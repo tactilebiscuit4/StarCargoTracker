@@ -1,5 +1,21 @@
 # Star Cargo Tracker
 
+```text
+  .    *          .       *           .       *      .
+ ████ █████  ███  ████      ████  ███  ████   ████  ███
+█       █   █   █ █   █    █     █   █ █   █ █     █   █
+ ███    █   █████ ████     █     █████ ████  █  ██ █   █
+    █   █   █   █ █  █     █     █   █ █  █  █   █ █   █
+████    █   █   █ █   █     ████ █   █ █   █  ████  ███
+
+        █████ ████   ███   ████ █   █ █████ ████
+          █   █   █ █   █ █     █  █  █     █   █
+          █   ████  █████ █     ███   ████  ████
+          █   █  █  █   █ █     █  █  █     █  █
+          █   █   █ █   █  ████ █   █ █████ █   █
+  *       .        *          .        *          .    *
+```
+
 A Windows command-line tool, written in Rust, that tracks your **Star Citizen** commodity trading automatically. It reads the game's log file as you play and records every purchase and sale. It works out profit per run, tracks which ship your cargo is on, writes off cargo lost when a ship is destroyed, and can show it all in an overlay on top of the game.
 
 There's no typing in numbers and no screenshots: buy and sell at commodity terminals as usual and the tracker picks it up.
@@ -122,7 +138,7 @@ Sends each completed trade to your [UEX](https://uexcorp.space) account: a **wal
 |---|---|
 | `uex` | Syncing status, how many trades have been sent, and your UEX wallet balance. |
 | `uex secret KEY` | Save your UEX secret key (from your UEX profile). |
-| `uex token TOKEN` | Save your UEX app token (make an app at [uexcorp.space/api/apps](https://uexcorp.space/api/apps)). Not needed if your copy has one built in. |
+| `uex token TOKEN` | Save your UEX app token (make an app at [uexcorp.space/api/apps](https://uexcorp.space/api/apps)). |
 | `uex sync on\|off` | Send new completed trades (from when your secret key was added). Starts in test mode. |
 | `uex send-past` | Also send trades from before then. They'll all be dated when they're sent; asks you to confirm with `uex send-past yes`. |
 | `uex live` / `uex test` | Real entries, or UEX's test mode (nothing real is recorded). |
@@ -193,7 +209,7 @@ Pass that path to `watch` or `overlay`. The built-in default is `D:\Roberts Spac
 ### Syncing with your UEX account
 1. On [uexcorp.space](https://uexcorp.space), copy your **secret key** from your profile. UEX only accepts entries from accounts verified with their RSI handle.
 2. Save it with `uex secret KEY`. Your secret key is yours alone: it's what writes to *your* wallet, so never share it.
-3. If your copy of the program doesn't have an app token built in (`uex` says), sign in at [uexcorp.space/api/apps](https://uexcorp.space/api/apps) (it isn't linked from your profile), create an app, and save its token with `uex token TOKEN`. UEX requires one to accept entries.
+3. Sign in at [uexcorp.space/api/apps](https://uexcorp.space/api/apps) (it isn't linked from your profile), create an app, and save its token with `uex token TOKEN`. UEX requires one to accept entries.
 
 Both are kept in your local database, never in the project folder; or set `STAR_CARGO_UEX_SECRET` and `STAR_CARGO_UEX_TOKEN` instead.
 4. `uex sync on` starts in **test mode**: UEX checks every entry but records nothing. Check `uex` shows no rejections.
@@ -209,7 +225,7 @@ If UEX turns out to update your wallet from trade-history entries too, use `uex 
 | Variable | Purpose |
 |---|---|
 | `STAR_CARGO_DB` | Where to keep the database. Default: `%APPDATA%\star-cargo-tracker\trades.db`. |
-| `STAR_CARGO_UEX_TOKEN` | UEX app token ([uexcorp.space/api/apps](https://uexcorp.space/api/apps)); overrides a saved or built-in one. |
+| `STAR_CARGO_UEX_TOKEN` | UEX app token ([uexcorp.space/api/apps](https://uexcorp.space/api/apps)), instead of saving one with `uex token`. |
 | `STAR_CARGO_UEX_SECRET` | Your UEX secret key, as an alternative to `uex secret`. |
 | `STAR_CARGO_UEX_URL` | UEX API address, if it changes. Default: `https://api.uexcorp.uk/2.0`. |
 | `NO_COLOR` | Set to anything to turn colours off. |
