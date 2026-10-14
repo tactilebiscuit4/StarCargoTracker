@@ -74,21 +74,6 @@ The program is then `target\release\star-cargo-tracker.exe`. You can copy it any
 
 During development, `cargo run -- <command>` builds and runs in one step, and `cargo test` runs the tests.
 
-### Building a release for others, with a built-in UEX token
-So players only need their own secret key to sync with UEX, a release can carry your UEX **app token**. It's read from an environment variable while building, so it never appears in the source code or on GitHub:
-
-```powershell
-$env:STAR_CARGO_UEX_BUILD_TOKEN = "your app token"
-cargo build --release
-Remove-Item Env:STAR_CARGO_UEX_BUILD_TOKEN
-```
-
-Things to know:
-- **Anyone with the `.exe` can extract the token.** It identifies the app, not a player, so it can't touch anyone's wallet, but its request limits may be shared by everyone using that build.
-- **Lock it to your releases.** Every request sends the program's version (from `Cargo.toml`) as `X-Client-Version`, so you can turn on UEX's *Client Version Lock* for the token. Bump the version for each release and update the lock.
-- **Players can still use their own token** with `uex token` or `STAR_CARGO_UEX_TOKEN`; it takes priority over the built-in one.
-- **Builds without the variable** (like anyone building from source) have no built-in token.
-
 ## Quick start
 
 1. **Start tracking** before or after launching the game:
