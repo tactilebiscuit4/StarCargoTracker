@@ -2,6 +2,7 @@ mod banner;
 mod color;
 mod db;
 mod format;
+mod game;
 mod live;
 mod locations;
 mod names;
@@ -29,7 +30,6 @@ use names::Names;
 use parser::Side;
 use tracker::{Outcome, Tracker};
 
-const DEFAULT_LOG: &str = r"D:\Roberts Space Industries\StarCitizen\LIVE\Game.log";
 const DEFAULT_HISTORY: usize = 20;
 
 const USAGE: &str = "\
@@ -42,6 +42,7 @@ Tracking:
   star-cargo-tracker overlay [GAME_LOG]   Like watch, plus an on-screen overlay over the game
   star-cargo-tracker import [PATH...]     Record trades from log files or folders; with no
                                           PATH, imports the game's logbackups folder
+  star-cargo-tracker game-folder [PATH]   Show where Star Citizen is installed, or set it
 
 Trades and profit:
   star-cargo-tracker history [COUNT] [--failed]
@@ -89,7 +90,8 @@ Other:
 
 Notes:
   IDs like #12 are shown by history (trades), profit (write-offs) and ships.
-  GAME_LOG defaults to D:\\Roberts Space Industries\\StarCitizen\\LIVE\\Game.log
+  Without GAME_LOG, Star Citizen is found automatically (or asked for once) and
+  remembered; see game-folder.
   Trades are stored in %APPDATA%\\star-cargo-tracker\\trades.db
   (set STAR_CARGO_DB to use a different file).
   The overlay only shows over the game in Borderless Windowed mode.
@@ -99,23 +101,47 @@ Notes:
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let command = args.first().map(String::as_str);
-    let log = match command {
-        Some("watch" | "overlay") => args.get(1).map_or_else(|| DEFAULT_LOG.into(), PathBuf::from),
-        _ => PathBuf::from(DEFAULT_LOG),
-    };
-
     let db_path = db_path();
-    banner::print(&log, db_path.as_deref().map_err(String::as_str));
+    let db = open_db();
+
+    // Where Game.log is: as given to watch/overlay, else the saved or
+    // automatically found game folder.
+    let given = match command {
+        Some("watch" | "overlay") => args.get(1).map(PathBuf::from),
+        _ => None,
+    };
+    let mut log = match &given {
+        Some(path) if path.is_dir() => match game::resolve(path) {
+            Some(live) => Some(game::log_file(&live)),
+            None => {
+                eprintln!("Star Citizen isn't in {}. {}", path.display(), game::how_to_set());
+                return ExitCode::FAILURE;
+            }
+        },
+        Some(path) => Some(path.clone()),
+        None => db.as_ref().ok().and_then(game::find).map(|live| game::log_file(&live)),
+    };
+    banner::print(log.as_deref(), db_path.as_deref().map_err(String::as_str));
 
     match command {
-        None | Some("watch") => track(log, false),
-        Some("overlay") => track(log, true),
+        None | Some("watch" | "overlay") => {
+            if log.is_none() {
+                log = db.as_ref().ok().and_then(game::ask).map(|live| game::log_file(&live));
+            }
+            let Some(log) = log else {
+                eprintln!("{}", game::how_to_set());
+                return ExitCode::FAILURE;
+            };
+            // Tracking opens its own connections on its threads.
+            drop(db);
+            track(log, command == Some("overlay"))
+        }
         Some("help") => {
             shell::print_help(USAGE);
             ExitCode::SUCCESS
         }
         Some(_) => {
-            let db = match open_db() {
+            let db = match db {
                 Ok(db) => db,
                 Err(e) => {
                     eprintln!("Cannot open trade database: {e}");
@@ -136,7 +162,8 @@ fn main() -> ExitCode {
 fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
     let command = args.first()?.as_str();
     let valid = match command {
-        "history" | "locations" | "profit" | "ships" | "import" | "routes" | "terminals" => true,
+        "history" | "locations" | "profit" | "ships" | "import" | "routes" | "terminals"
+        | "game-folder" => true,
         "prices" => args.len() > 1,
         "uex" => true,
         "link-terminal" => args.len() == 3,
@@ -151,10 +178,15 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
     Some(match command {
         "import" if args.len() > 1 => import(db, &args[1..]),
         "import" => {
-            let backups = default_backups().display().to_string();
+            let Some(live) = game::find(db) else {
+                eprintln!("Couldn't find Star Citizen's logbackups folder. {}", game::how_to_set());
+                return Some(ExitCode::FAILURE);
+            };
+            let backups = game::backups_folder(&live).display().to_string();
             println!("Importing {backups}");
             import(db, &[backups])
         }
+        "game-folder" => game_folder(db, &args[1..].join(" ")),
         "locations" => match args.get(1).map(String::as_str) {
             None => list_locations(db, false),
             Some("--failed" | "-f") => list_locations(db, true),
@@ -190,9 +222,36 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
     })
 }
 
-/// Where the game keeps logs from earlier sessions, next to Game.log.
-fn default_backups() -> PathBuf {
-    Path::new(DEFAULT_LOG).with_file_name("logbackups")
+/// `game-folder [PATH]`: shows where Star Citizen is, or sets it. PATH can
+/// be any level of the install, e.g. the folder chosen in the RSI Launcher.
+fn game_folder(db: &Db, path: &str) -> ExitCode {
+    if path.is_empty() {
+        match game::find(db) {
+            Some(live) => {
+                println!("Star Citizen: {}", live.display());
+                println!("  Game log:    {}", game::log_file(&live).display());
+                println!("  Log backups: {}", game::backups_folder(&live).display());
+                println!("{}", color::grey(format!("Change it with: {}", shell::command_hint("game-folder PATH"))));
+            }
+            None => println!("{}", color::amber(format!("Star Citizen wasn't found. {}", game::how_to_set()))),
+        }
+        return ExitCode::SUCCESS;
+    }
+    match game::resolve(Path::new(path)) {
+        Some(live) => {
+            game::save(db, &live);
+            println!("Star Citizen: {}", live.display());
+            println!("{}", color::grey("Saved. Restart tracking to follow this game's log."));
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!(
+                "Star Citizen isn't in {path}. Give the folder you chose in the RSI Launcher \
+                 (or the StarCitizen or LIVE folder inside it)."
+            );
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn db_path() -> Result<PathBuf, String> {

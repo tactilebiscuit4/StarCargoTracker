@@ -1,20 +1,8 @@
 # Star Cargo Tracker
 
-```text
-  .    *          .       *           .       *      .
- ████ █████  ███  ████      ████  ███  ████   ████  ███
-█       █   █   █ █   █    █     █   █ █   █ █     █   █
- ███    █   █████ ████     █     █████ ████  █  ██ █   █
-    █   █   █   █ █  █     █     █   █ █  █  █   █ █   █
-████    █   █   █ █   █     ████ █   █ █   █  ████  ███
-
-        █████ ████   ███   ████ █   █ █████ ████
-          █   █   █ █   █ █     █  █  █     █   █
-          █   ████  █████ █     ███   ████  ████
-          █   █  █  █   █ █     █  █  █     █  █
-          █   █   █ █   █  ████ █   █ █████ █   █
-  *       .        *          .        *          .    *
-```
+<p align="center">
+  <img src="docs/banner.svg" alt="STAR CARGO TRACKER, in the block lettering of the program's banner" width="608">
+</p>
 
 A Windows command-line tool, written in Rust, that tracks your **Star Citizen** commodity trading automatically. It reads the game's log file as you play and records every purchase and sale. It works out profit per run, tracks which ship your cargo is on, writes off cargo lost when a ship is destroyed, and can show it all in an overlay on top of the game.
 
@@ -94,9 +82,9 @@ During development, `cargo run -- <command>` builds and runs in one step, and `c
 
 1. **Start tracking** before or after launching the game:
    ```powershell
-   star-cargo-tracker "C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Game.log"
+   star-cargo-tracker
    ```
-   Pass the path to *your* `Game.log`; see [Game log location](#game-log-location).
+   It finds your Star Citizen install by itself, or asks for it once; see [Game log location](#game-log-location).
 2. **Trade in game.** Each trade appears in the terminal (and on the overlay, if it's on).
 3. At the `cargo>` prompt, try `profit`, `history`, `ships` or `routes`.
 4. **Load your earlier sessions** once with `import`, which reads the game's `logbackups` folder.
@@ -112,6 +100,7 @@ Run any of these as `star-cargo-tracker <command>`, or type them at the `cargo>`
 | `watch [GAME_LOG]` | Follow `Game.log` and record trades live, with the `cargo>` prompt. The default with no command. |
 | `overlay [GAME_LOG]` | Like `watch`, with the overlay shown. At the prompt: `overlay on`, `overlay off`, or `overlay` to switch. |
 | `import [PATH...]` | Record trades from log files or folders. With no path, imports the game's `logbackups` folder. Safe to repeat. |
+| `game-folder [PATH]` | Show where Star Citizen is installed, or set it. Found automatically the first time; see [Game log location](#game-log-location). |
 
 ### Trades and profit
 | Command | What it does |
@@ -198,13 +187,15 @@ Destroyed (claimed ships come back with a new ID):
 ## Configuration
 
 ### Game log location
-The game writes its log to `StarCitizen\LIVE\Game.log` inside your install folder, for example:
+The game writes its log to `StarCitizen\LIVE\Game.log` inside the folder you chose in the RSI Launcher, e.g. `C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Game.log`. You don't need to tell the tracker; the first time it runs it:
 
-```
-C:\Program Files\Roberts Space Industries\StarCitizen\LIVE\Game.log
-```
+1. Looks where the RSI Launcher was told to install games (the launcher notes this in its own log).
+2. Otherwise checks the usual places on every drive: `Roberts Space Industries`, `Program Files\Roberts Space Industries` and `Games\Roberts Space Industries`.
+3. Otherwise asks you for the install folder. Any level works: the folder you chose in the launcher, the `StarCitizen` folder, the `LIVE` folder, or `Game.log` itself.
 
-Pass that path to `watch` or `overlay`. The built-in default is `D:\Roberts Space Industries\StarCitizen\LIVE\Game.log` (`DEFAULT_LOG` in `src/main.rs`), so change that constant if you'd rather not pass the path every time. Each time the game starts, it moves the previous `Game.log` into the `logbackups` folder next to it; the tracker notices and carries on with the new log.
+The folder it finds is remembered. `game-folder` shows it, and `game-folder PATH` changes it. Passing a path to `watch` or `overlay` overrides it for that run. The `LIVE` channel is always used; to track the PTU instead, point `game-folder` at its folder.
+
+Each time the game starts, it moves the previous `Game.log` into the `logbackups` folder next to it; the tracker notices and carries on with the new log, and `import` reads `logbackups` for earlier sessions.
 
 ### Syncing with your UEX account
 1. On [uexcorp.space](https://uexcorp.space), copy your **secret key** from your profile. UEX only accepts entries from accounts verified with their RSI handle.
@@ -252,6 +243,7 @@ Everything is stored in a local SQLite database, and re-reading a log never reco
 | `src/parser.rs` | Reads `Game.log` lines into events |
 | `src/tracker.rs` | Confirms or fails trades; follows location, ship and losses |
 | `src/watcher.rs` | Follows `Game.log` as it grows |
+| `src/game.rs` | Finds the Star Citizen install and its logs |
 | `src/live.rs` | The tracking loop shared by `watch` and `overlay` |
 | `src/db.rs` | SQLite storage |
 | `src/profit.rs` | Matches sales to purchases; profit and losses |

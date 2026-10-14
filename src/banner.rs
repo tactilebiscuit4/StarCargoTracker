@@ -34,7 +34,7 @@ const TIPS: &[&str] = &[
 ];
 
 /// Prints the banner, with where the tracker reads and stores data.
-pub fn print(log: &Path, db: Result<&Path, &str>) {
+pub fn print(log: Option<&Path>, db: Result<&Path, &str>) {
     for line in ART.lines() {
         // The letters in cyan, the star field dim.
         if line.contains('█') {
@@ -52,12 +52,22 @@ pub fn print(log: &Path, db: Result<&Path, &str>) {
     );
     println!();
 
-    let found = if log.exists() {
-        color::green("found")
-    } else {
-        color::amber("not found yet")
-    };
-    println!("  {}  {} ({found})", color::bold("Game log:"), log.display());
+    match log {
+        Some(log) => {
+            // Before the game's first run there's no log yet; it's created then.
+            let found = if log.exists() {
+                color::green("found")
+            } else {
+                color::amber("not created yet; it appears when the game starts")
+            };
+            println!("  {}  {} ({found})", color::bold("Game log:"), log.display());
+        }
+        None => println!(
+            "  {}  {}",
+            color::bold("Game log:"),
+            color::amber("Star Citizen not found yet (see game-folder)")
+        ),
+    }
     match db {
         Ok(path) => println!("  {}  {}", color::bold("Database:"), path.display()),
         Err(e) => println!("  {}  {}", color::bold("Database:"), color::red(format!("unavailable ({e})"))),

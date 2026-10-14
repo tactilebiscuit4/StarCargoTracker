@@ -29,6 +29,7 @@ Tracking:
   overlay [on|off]              Show or hide the on-screen overlay (no word switches it)
   import [PATH...]              Record trades from log files or folders
                                 (no PATH: the game's logbackups folder)
+  game-folder [PATH]            Show where Star Citizen is installed, or set it
 
 Trades and profit:
   history [COUNT] [--failed]    Recent trades and totals (--failed also shows failed ones)
@@ -75,6 +76,7 @@ const COMMANDS: &[&str] = &[
     "cancel-trade",
     "delete-write-off",
     "exit",
+    "game-folder",
     "help",
     "history",
     "import",
@@ -356,7 +358,7 @@ impl Completer for Completions {
 
         let candidates = match args.first().map(String::as_str) {
             None => COMMANDS.iter().map(|c| plain(c)).collect(),
-            Some("import") => return self.files.complete(line, pos, ctx),
+            Some("import" | "game-folder") => return self.files.complete(line, pos, ctx),
             Some(command) => self.arguments(command, args.len()),
         };
         // Add the space before the next argument, as shells do.
