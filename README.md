@@ -283,4 +283,4 @@ This is an unofficial fan project, not affiliated with or endorsed by Cloud Impe
 
 ## License
 
-No license has been chosen for this project yet.
+Released under the [MIT License](LICENSE). The bundled Share Tech Mono font keeps its own license, the SIL Open Font License 1.1 (`assets/fonts/ShareTechMono-OFL.txt`).

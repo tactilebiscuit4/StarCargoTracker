@@ -3,6 +3,7 @@ name = "star-cargo-tracker"
 version = "0.1.0"
 edition = "2021"
 description = "Tracks Star Citizen commodity trades by reading Game.log"
+license = "MIT"
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
