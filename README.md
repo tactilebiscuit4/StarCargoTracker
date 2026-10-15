@@ -6,11 +6,7 @@ A Windows command-line tool, written in Rust, that tracks your **Star Citizen** 
 
 There's no typing in numbers and no screenshots: buy and sell at commodity terminals as usual and the tracker picks it up.
 
-```
-#2     2026-10-04 06:43:49  SELL   120.00 SCU  Construction Materials  Pyro Gateway (Nyx)   +1,470,960 aUEC  (Drake Ironclad)
-    profit +434,159 aUEC (+41.9%)
-    UEX: best known price in Nyx (13,000/SCU)
-```
+![A purchase and sale as the tracker shows them: buying 120 SCU of Construction Materials at Levski with UEX sell advice, then selling it at Pyro Gateway (Nyx) for +434,159 aUEC profit](docs/example-trade.png)
 
 > **Safe to use:** the tracker only *reads* `Game.log`, the plain-text log the game writes for itself. It never touches the game's memory or files, and never sends anything to the game, so there's nothing for Easy Anti-Cheat to object to.
 
