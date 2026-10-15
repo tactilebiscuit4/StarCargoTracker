@@ -383,8 +383,7 @@ impl eframe::App for Overlay {
             ctx.request_repaint(); // Redraw at the new size straight away.
         }
         if self.last_reposition.is_none_or(|at| at.elapsed() >= REPOSITION_EVERY) {
-            let pixels = self.size * ctx.pixels_per_point();
-            position::place_on_game_monitor(TITLE, pixels.x.ceil() as i32, pixels.y.ceil() as i32);
+            place(&ctx, self.size);
             self.last_reposition = Some(Instant::now());
         }
 
@@ -407,7 +406,30 @@ fn panel(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
     ui.add_space(4.0);
 }
 
+/// Sizes the overlay to `size` (in points) and moves it to the top-right of
+/// the game's monitor.
+#[cfg(windows)]
+fn place(ctx: &egui::Context, size: egui::Vec2) {
+    let pixels = size * ctx.pixels_per_point();
+    position::place_on_game_monitor(TITLE, pixels.x.ceil() as i32, pixels.y.ceil() as i32);
+}
+
+/// Elsewhere there's no portable way to find the game's window, so this uses
+/// the monitor the overlay is on. Wayland lets apps resize themselves but not
+/// choose where they go, so there the compositor decides the position.
+#[cfg(not(windows))]
+fn place(ctx: &egui::Context, size: egui::Vec2) {
+    /// Gap between the overlay and the screen edge, in points.
+    const MARGIN: f32 = 24.0;
+    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+    if let Some(monitor) = ctx.input(|i| i.viewport().monitor_size) {
+        let at = egui::pos2(monitor.x - size.x - MARGIN, MARGIN);
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(at));
+    }
+}
+
 /// Finding the game's monitor and moving the overlay there, via Win32.
+#[cfg(windows)]
 mod position {
     use std::ptr;
 

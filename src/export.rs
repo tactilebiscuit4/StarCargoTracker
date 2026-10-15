@@ -328,6 +328,7 @@ fn side_name(side: Side) -> &'static str {
 }
 
 /// The user's Documents folder, wherever Windows keeps it (e.g. in OneDrive).
+#[cfg(windows)]
 fn documents_folder() -> Option<PathBuf> {
     use std::os::windows::ffi::OsStringExt;
     use windows_sys::Win32::System::Com::CoTaskMemFree;
@@ -344,6 +345,34 @@ fn documents_folder() -> Option<PathBuf> {
         });
         CoTaskMemFree(raw as *const _);
         path.or_else(|| std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join("Documents")))
+    }
+}
+
+/// The Documents folder set in `~/.config/user-dirs.dirs` (it may be
+/// translated, e.g. `~/Dokumente`), else `~/Documents` if it exists, else home.
+#[cfg(not(windows))]
+fn documents_folder() -> Option<PathBuf> {
+    let home = PathBuf::from(std::env::var_os("HOME")?);
+    let config = std::env::var_os("XDG_CONFIG_HOME")
+        .filter(|d| !d.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+    let from_config = std::fs::read_to_string(config.join("user-dirs.dirs"))
+        .ok()
+        .and_then(|text| xdg_documents(&text, &home));
+    let fallback = home.join("Documents");
+    Some(from_config.filter(|dir| dir.is_dir()).unwrap_or(if fallback.is_dir() { fallback } else { home }))
+}
+
+/// Reads `XDG_DOCUMENTS_DIR="$HOME/Documents"` from `user-dirs.dirs`.
+#[cfg(not(windows))]
+fn xdg_documents(text: &str, home: &Path) -> Option<PathBuf> {
+    let line = text.lines().find_map(|line| line.trim().strip_prefix("XDG_DOCUMENTS_DIR="))?;
+    let value = line.trim().trim_matches('"');
+    match value.strip_prefix("$HOME") {
+        Some(rest) => Some(home.join(rest.trim_start_matches('/'))),
+        None if value.starts_with('/') => Some(PathBuf::from(value)),
+        None => None,
     }
 }
 
@@ -372,5 +401,15 @@ mod tests {
         assert_eq!(exported.trades, 0);
         assert!(std::fs::metadata(&path).unwrap().len() > 0);
         std::fs::remove_file(&path).unwrap();
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn reads_the_documents_folder_setting() {
+        let home = Path::new("/home/pilot");
+        let text = "# comment\nXDG_DESKTOP_DIR=\"$HOME/Desktop\"\nXDG_DOCUMENTS_DIR=\"$HOME/Dokumente\"\n";
+        assert_eq!(xdg_documents(text, home), Some(PathBuf::from("/home/pilot/Dokumente")));
+        assert_eq!(xdg_documents("XDG_DOCUMENTS_DIR=\"/data/docs\"", home), Some(PathBuf::from("/data/docs")));
+        assert_eq!(xdg_documents("XDG_MUSIC_DIR=\"$HOME/Music\"", home), None);
     }
 }

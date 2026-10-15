@@ -95,8 +95,9 @@ Notes:
   IDs like #12 are shown by history (trades), profit (write-offs) and ships.
   Without GAME_LOG, Star Citizen is found automatically (or asked for once) and
   remembered; see game-folder.
-  Trades are stored in %APPDATA%\\star-cargo-tracker\\trades.db
-  (set STAR_CARGO_DB to use a different file).
+  Trades are stored in %APPDATA%\\star-cargo-tracker\\trades.db on Windows, or
+  ~/.local/share/star-cargo-tracker/trades.db on Linux (set STAR_CARGO_DB to use a
+  different file).
   The overlay only shows over the game in Borderless Windowed mode.
   Market data comes from UEX (uexcorp.space). Optional: STAR_CARGO_UEX_TOKEN (an app
   token) and STAR_CARGO_UEX_URL (if its address changes).";
@@ -262,8 +263,23 @@ fn db_path() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os("STAR_CARGO_DB") {
         return Ok(path.into());
     }
-    let appdata = std::env::var_os("APPDATA").ok_or("APPDATA is not set")?;
-    Ok(Path::new(&appdata).join("star-cargo-tracker").join("trades.db"))
+    Ok(data_folder()?.join("star-cargo-tracker").join("trades.db"))
+}
+
+/// `%APPDATA%` on Windows.
+#[cfg(windows)]
+fn data_folder() -> Result<PathBuf, String> {
+    std::env::var_os("APPDATA").map(PathBuf::from).ok_or_else(|| "APPDATA is not set".to_string())
+}
+
+/// `$XDG_DATA_HOME`, usually `~/.local/share`, elsewhere.
+#[cfg(not(windows))]
+fn data_folder() -> Result<PathBuf, String> {
+    if let Some(dir) = std::env::var_os("XDG_DATA_HOME").filter(|d| !d.is_empty()) {
+        return Ok(dir.into());
+    }
+    let home = std::env::var_os("HOME").ok_or("HOME is not set")?;
+    Ok(Path::new(&home).join(".local").join("share"))
 }
 
 fn open_db() -> Result<Db, String> {

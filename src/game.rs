@@ -17,10 +17,10 @@ use crate::db::Db;
 const SETTING: &str = "game_folder";
 
 /// Where installs usually are, relative to a drive's root.
-const USUAL_PLACES: &[&str] = &[
-    "Roberts Space Industries",
-    r"Program Files\Roberts Space Industries",
-    r"Games\Roberts Space Industries",
+const USUAL_PLACES: &[&[&str]] = &[
+    &["Roberts Space Industries"],
+    &["Program Files", "Roberts Space Industries"],
+    &["Games", "Roberts Space Industries"],
 ];
 
 /// `<install>\StarCitizen\LIVE\Game.log`
@@ -43,8 +43,8 @@ fn is_game_folder(dir: &Path) -> bool {
 /// or `logbackups`. `None` if Star Citizen isn't there.
 pub fn resolve(path: &Path) -> Option<PathBuf> {
     // Pasted paths often come with quotes.
-    let cleaned = path.to_string_lossy().trim().trim_matches('"').to_string();
-    let mut path = PathBuf::from(cleaned);
+    let cleaned = path.to_string_lossy().trim().trim_matches(['"', '\'']).to_string();
+    let mut path = expand_home(&cleaned);
     if path.is_file() || path.file_name().is_some_and(|n| n.eq_ignore_ascii_case("logbackups")) {
         path = path.parent()?.to_path_buf();
     }
@@ -56,6 +56,14 @@ pub fn resolve(path: &Path) -> Option<PathBuf> {
     ]
     .into_iter()
     .find(|dir| is_game_folder(dir))
+}
+
+/// `~/Games` as typed in a Linux shell; the shell isn't there to expand it.
+fn expand_home(path: &str) -> PathBuf {
+    match (path.strip_prefix("~/"), std::env::var_os("HOME")) {
+        (Some(rest), Some(home)) if cfg!(not(windows)) => PathBuf::from(home).join(rest),
+        _ => PathBuf::from(path),
+    }
 }
 
 /// The game folder to use without asking: the saved one, else one found
@@ -91,13 +99,35 @@ pub fn detect() -> Option<PathBuf> {
 }
 
 /// Folders chosen in the RSI Launcher, most recent first, from its log:
-/// `[DialogService] Window 2 selected folder: D:\\Roberts Space Industries`
+/// `[DialogService] Window 2 selected folder: D:\Roberts Space Industries`
+#[cfg(windows)]
 fn launcher_folders() -> Vec<PathBuf> {
-    let Some(appdata) = std::env::var_os("APPDATA") else {
-        return Vec::new();
-    };
-    let logs = Path::new(&appdata).join("rsilauncher").join("logs");
-    let Ok(entries) = fs::read_dir(&logs) else {
+    match std::env::var_os("APPDATA") {
+        Some(appdata) => folders_in_launcher_logs(&Path::new(&appdata).join("rsilauncher").join("logs")),
+        None => Vec::new(),
+    }
+}
+
+/// On Linux the game runs under Wine, so the launcher's log is inside a Wine
+/// prefix, and the Windows paths in it point into that prefix.
+#[cfg(not(windows))]
+fn launcher_folders() -> Vec<PathBuf> {
+    let mut folders = Vec::new();
+    for prefix in wine_prefixes() {
+        let Ok(users) = fs::read_dir(prefix.join("drive_c").join("users")) else {
+            continue;
+        };
+        for user in users.flatten() {
+            let logs = user.path().join("AppData").join("Roaming").join("rsilauncher").join("logs");
+            let found = folders_in_launcher_logs(&logs);
+            folders.extend(found.iter().filter_map(|f| wine_path(&prefix, &f.to_string_lossy())));
+        }
+    }
+    folders
+}
+
+fn folders_in_launcher_logs(logs: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(logs) else {
         return Vec::new();
     };
     let mut folders = Vec::new();
@@ -121,13 +151,87 @@ fn folders_in_launcher_log(text: &str) -> Vec<PathBuf> {
         .collect()
 }
 
+#[cfg(windows)]
 fn usual_folders() -> Vec<PathBuf> {
     ('A'..='Z')
         .map(|drive| PathBuf::from(format!("{drive}:\\")))
         .filter(|root| root.exists())
-        .flat_map(|root| USUAL_PLACES.iter().map(move |place| root.join(place)))
+        .flat_map(usual_places)
         .collect()
 }
+
+/// The usual places on each Wine prefix's C: drive.
+#[cfg(not(windows))]
+fn usual_folders() -> Vec<PathBuf> {
+    wine_prefixes()
+        .into_iter()
+        .map(|prefix| prefix.join("drive_c"))
+        .filter(|root| root.exists())
+        .flat_map(usual_places)
+        .collect()
+}
+
+fn usual_places(root: PathBuf) -> Vec<PathBuf> {
+    USUAL_PLACES
+        .iter()
+        .map(|parts| parts.iter().fold(root.clone(), |path, part| path.join(part)))
+        .collect()
+}
+
+/// Wine prefixes Star Citizen is often installed in: `$WINEPREFIX`, the LUG
+/// Helper's `~/Games/star-citizen`, other folders in `~/Games` (Lutris),
+/// `~/.wine`, and Steam's Proton prefixes.
+#[cfg(not(windows))]
+fn wine_prefixes() -> Vec<PathBuf> {
+    let mut prefixes: Vec<PathBuf> = std::env::var_os("WINEPREFIX").map(PathBuf::from).into_iter().collect();
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        prefixes.push(home.join("Games").join("star-citizen"));
+        prefixes.extend(subfolders(&home.join("Games")));
+        prefixes.push(home.join(".wine"));
+        for steam in [home.join(".steam").join("steam"), home.join(".local").join("share").join("Steam")] {
+            prefixes.extend(subfolders(&steam.join("steamapps").join("compatdata")).into_iter().map(|d| d.join("pfx")));
+        }
+    }
+    let mut seen = Vec::new();
+    prefixes.retain(|p| p.join("drive_c").is_dir() && !seen.contains(p) && {
+        seen.push(p.clone());
+        true
+    });
+    prefixes
+}
+
+#[cfg(not(windows))]
+fn subfolders(dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut dirs: Vec<PathBuf> = entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()).collect();
+    dirs.sort();
+    dirs
+}
+
+/// Where a Windows path inside a Wine prefix really is: `D:\Games\RSI` is
+/// `<prefix>/dosdevices/d:/Games/RSI`, and `C:` is `<prefix>/drive_c`.
+#[cfg(not(windows))]
+fn wine_path(prefix: &Path, windows_path: &str) -> Option<PathBuf> {
+    let (drive, rest) = windows_path.split_once(':')?;
+    let drive = drive.trim();
+    if drive.len() != 1 || !drive.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    let root = if drive.eq_ignore_ascii_case("c") {
+        prefix.join("drive_c")
+    } else {
+        prefix.join("dosdevices").join(format!("{}:", drive.to_ascii_lowercase()))
+    };
+    Some(rest.split(['\\', '/']).filter(|part| !part.is_empty()).fold(root, |path, part| path.join(part)))
+}
+
+/// An example install folder, for messages.
+#[cfg(windows)]
+const EXAMPLE_FOLDER: &str = r"C:\Program Files\Roberts Space Industries";
+#[cfg(not(windows))]
+const EXAMPLE_FOLDER: &str = "~/Games/star-citizen/drive_c/Program Files/Roberts Space Industries";
 
 /// Asks where the game is installed, until a folder with Star Citizen in it
 /// is given (then saved) or nothing is entered. Only when someone can answer.
@@ -141,10 +245,10 @@ pub fn ask(db: &Db) -> Option<PathBuf> {
     );
     println!(
         "{}",
-        color::grey(
-            "Enter the folder you chose in the RSI Launcher, e.g. C:\\Program Files\\Roberts Space Industries\n\
+        color::grey(format!(
+            "Enter the folder you chose in the RSI Launcher, e.g. {EXAMPLE_FOLDER}\n\
              (the StarCitizen or LIVE folder inside it works too). Press Enter on its own to skip."
-        )
+        ))
     );
     let stdin = io::stdin();
     loop {
@@ -172,7 +276,7 @@ pub fn ask(db: &Db) -> Option<PathBuf> {
 pub fn how_to_set() -> String {
     format!(
         "Tell it where Star Citizen is installed with: {}",
-        crate::shell::command_hint(r#"game-folder "C:\Program Files\Roberts Space Industries""#)
+        crate::shell::command_hint(&format!("game-folder \"{EXAMPLE_FOLDER}\""))
     )
 }
 
@@ -230,5 +334,36 @@ mod tests {
             folders_in_launcher_log(log),
             vec![PathBuf::from(r"D:\Roberts Space Industries"), PathBuf::from(r"E:\Games\RSI")]
         );
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn maps_windows_paths_into_the_wine_prefix() {
+        let prefix = Path::new("/home/pilot/Games/star-citizen");
+        assert_eq!(
+            wine_path(prefix, r"C:\Program Files\Roberts Space Industries"),
+            Some(prefix.join("drive_c/Program Files/Roberts Space Industries"))
+        );
+        assert_eq!(wine_path(prefix, r"D:\Games\RSI"), Some(prefix.join("dosdevices/d:/Games/RSI")));
+        assert_eq!(wine_path(prefix, "relative/path"), None);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn finds_the_game_in_a_wine_prefix() {
+        let home = std::env::temp_dir().join(format!("star-cargo-tracker-test-wine-{}", std::process::id()));
+        let prefix = home.join("Games").join("star-citizen");
+        let live = prefix.join("drive_c/Program Files/Roberts Space Industries/StarCitizen/LIVE");
+        fs::create_dir_all(&live).unwrap();
+        fs::write(live.join("Data.p4k"), b"").unwrap();
+        let old_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", &home);
+        let found = detect();
+        match old_home {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
+        assert_eq!(found, Some(live));
+        fs::remove_dir_all(home).unwrap();
     }
 }

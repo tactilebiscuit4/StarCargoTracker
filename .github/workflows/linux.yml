@@ -1,0 +1,53 @@
+# Builds and tests the Linux version on every push, and attaches it to each
+# published release as star-cargo-tracker-linux-x86_64.tar.gz.
+name: Linux
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write # To attach the build to a release.
+
+jobs:
+  build:
+    # The oldest supported Ubuntu, so the program runs on older distributions too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the libraries the overlay builds against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libxkbcommon-dev libwayland-dev \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libgl1-mesa-dev
+
+      - name: Update Rust
+        run: rustup update stable && rustup default stable
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        run: |
+          mkdir -p dist/star-cargo-tracker
+          cp target/release/star-cargo-tracker README.md LICENSE dist/star-cargo-tracker/
+          tar -czf star-cargo-tracker-linux-x86_64.tar.gz -C dist star-cargo-tracker
+          sha256sum star-cargo-tracker-linux-x86_64.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: star-cargo-tracker-linux-x86_64
+          path: star-cargo-tracker-linux-x86_64.tar.gz
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" star-cargo-tracker-linux-x86_64.tar.gz --clobber

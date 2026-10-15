@@ -29,6 +29,7 @@ pub fn enabled() -> bool {
 
 /// Windows Terminal understands colour codes already; the older console
 /// window needs them switched on.
+#[cfg(windows)]
 fn enable_escape_codes() -> bool {
     use windows_sys::Win32::System::Console::{
         GetConsoleMode, GetStdHandle, SetConsoleMode, ENABLE_VIRTUAL_TERMINAL_PROCESSING,
@@ -44,6 +45,12 @@ fn enable_escape_codes() -> bool {
         mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0
             || SetConsoleMode(out, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING) != 0
     }
+}
+
+/// Other terminals understand colour codes as they are.
+#[cfg(not(windows))]
+fn enable_escape_codes() -> bool {
+    true
 }
 
 fn paint(code: &str, text: impl Display) -> String {
