@@ -75,5 +75,5 @@ fn fetch_name(guid: &str) -> Result<Option<String>, String> {
 
     let body = response.body_mut().read_to_string().map_err(|e| e.to_string())?;
     let json: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-    Ok(json["data"]["name"].as_str().map(str::to_string))
+    Ok(json["data"]["name"].as_str().map(crate::format::clean))
 }

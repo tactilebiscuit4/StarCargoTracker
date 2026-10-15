@@ -1,6 +1,6 @@
 [package]
 name = "star-cargo-tracker"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Tracks Star Citizen commodity trades by reading Game.log"
 license = "MIT"

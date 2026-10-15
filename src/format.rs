@@ -1,5 +1,12 @@
 //! Formatting shared by the console and the overlay.
 
+/// Text from the internet (UEX, the Star Citizen Wiki) without control
+/// characters, so it can't send escape codes to the terminal (e.g. to change
+/// its title or write to the clipboard).
+pub fn clean(text: &str) -> String {
+    text.chars().filter(|c| !c.is_control()).collect()
+}
+
 /// Formats a credit amount with thousands separators, e.g. `-1,036,801`.
 pub fn auec(amount: f64) -> String {
     let rounded = amount.round() as i64;
@@ -76,5 +83,12 @@ mod tests {
         assert_eq!(margin(Some(0.41875)), " (+41.9%)");
         assert_eq!(scu(16.0), "16");
         assert_eq!(scu(12.5), "12.50");
+    }
+
+    #[test]
+    fn cleans_control_characters() {
+        assert_eq!(clean("Levski\u{1b}]52;c;aGk=\u{7}"), "Levski]52;c;aGk=");
+        assert_eq!(clean("Port\u{9b}31m Tressler"), "Port31m Tressler");
+        assert_eq!(clean("Pyro Gateway (Nyx)"), "Pyro Gateway (Nyx)");
     }
 }

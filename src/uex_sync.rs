@@ -508,7 +508,7 @@ fn request(config: &Config, method: &str, path: &str, body: Option<Value>) -> Re
     match json["status"].as_str() {
         Some("ok") => Ok(json),
         Some(why) if uex::is_rate_limit(why) => Err(SendError::Offline(RATE_LIMITED.into())),
-        Some(why) => Err(SendError::Rejected(why.to_string())),
+        Some(why) => Err(SendError::Rejected(crate::format::clean(why))),
         None if status >= 500 => Err(SendError::Offline(format!("HTTP {status}"))),
         None => Err(SendError::Rejected(format!("HTTP {status}"))),
     }

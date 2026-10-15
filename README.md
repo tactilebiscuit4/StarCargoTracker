@@ -189,7 +189,7 @@ If UEX turns out to update your wallet from trade-history entries too, use `uex 
 | `STAR_CARGO_DB` | Where to keep the database. Default: `%APPDATA%\star-cargo-tracker\trades.db`. |
 | `STAR_CARGO_UEX_TOKEN` | UEX app token ([uexcorp.space/api/apps](https://uexcorp.space/api/apps)), instead of saving one with `uex token`. |
 | `STAR_CARGO_UEX_SECRET` | Your UEX secret key, as an alternative to `uex secret`. |
-| `STAR_CARGO_UEX_URL` | UEX API address, if it changes. Default: `https://api.uexcorp.uk/2.0`. |
+| `STAR_CARGO_UEX_URL` | UEX API address, if it changes (must be `https://`). Default: `https://api.uexcorp.uk/2.0`. |
 | `NO_COLOR` | Set to anything to turn colours off. |
 
 ## How it works

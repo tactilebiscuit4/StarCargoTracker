@@ -279,10 +279,29 @@ pub fn is_rate_limit(why: &str) -> bool {
 }
 
 pub fn base_url() -> String {
-    std::env::var("STAR_CARGO_UEX_URL")
-        .unwrap_or_else(|_| DEFAULT_URL.to_string())
-        .trim_end_matches('/')
-        .to_string()
+    match pick_url(std::env::var("STAR_CARGO_UEX_URL").ok()) {
+        Ok(url) => url,
+        Err(given) => {
+            // Your secret key goes with every request, so never send it unencrypted.
+            static WARNED: std::sync::Once = std::sync::Once::new();
+            WARNED.call_once(|| {
+                eprintln!("STAR_CARGO_UEX_URL must start with https://; ignoring {given} and using {DEFAULT_URL}")
+            });
+            DEFAULT_URL.to_string()
+        }
+    }
+}
+
+/// The UEX address to use, or the given one back as an error if it isn't HTTPS.
+fn pick_url(given: Option<String>) -> Result<String, String> {
+    let url = given.unwrap_or_else(|| DEFAULT_URL.to_string());
+    let url = url.trim().trim_end_matches('/');
+    let https = url.get(..8).is_some_and(|scheme| scheme.eq_ignore_ascii_case("https://"));
+    if https {
+        Ok(url.to_string())
+    } else {
+        Err(url.to_string())
+    }
 }
 
 /// GETs a UEX endpoint and returns its `data` rows.
@@ -381,7 +400,7 @@ fn number(row: &Value, key: &str) -> f64 {
 }
 
 fn text(row: &Value, key: &str) -> String {
-    row[key].as_str().unwrap_or("").trim().to_string()
+    crate::format::clean(row[key].as_str().unwrap_or("").trim())
 }
 
 fn store_prices(conn: &Connection, rows: &[Value]) -> rusqlite::Result<()> {
@@ -776,6 +795,17 @@ mod tests {
         assert_eq!(pick_token(s(" "), None, Some("built")).unwrap().1, TokenSource::BuiltIn);
         assert_eq!(pick_token(None, None, None), None);
         assert_eq!(pick_token(None, None, Some("")), None);
+    }
+
+    #[test]
+    fn only_uses_https_addresses() {
+        let s = |s: &str| Some(s.to_string());
+        assert_eq!(pick_url(None).unwrap(), DEFAULT_URL);
+        assert_eq!(pick_url(s("https://example.com/2.0/")).unwrap(), "https://example.com/2.0");
+        assert_eq!(pick_url(s("HTTPS://example.com")).unwrap(), "HTTPS://example.com");
+        assert!(pick_url(s("http://example.com")).is_err());
+        assert!(pick_url(s("example.com")).is_err());
+        assert!(pick_url(s("")).is_err());
     }
 
     #[test]
