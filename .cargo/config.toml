@@ -1,0 +1,4 @@
+# Build the Visual C++ runtime into the exe, so it runs on a fresh Windows
+# install without the "VCRUNTIME140.dll was not found" error.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
