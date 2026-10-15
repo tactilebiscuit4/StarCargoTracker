@@ -141,42 +141,17 @@ IDs like `#12` are shown by `history` (trades), `profit` (write-offs) and `ships
 
 ## Examples
 
-**`profit`**
-```
-Sales:
-  2026-10-04 06:43:49    120.00 SCU Construction Materials   sold at Pyro Gateway (Nyx)
-      bought at Levski, held 23m
-      cost 1,036,801 -> revenue 1,470,960 = profit +434,159 (+41.9%)
+**`profit`**: each sale with what the cargo cost and earned, cargo written off, and the totals.
 
-Written off:
-  #1   2026-10-12 02:13:47     16.00 SCU Quartz        lost 57,003 aUEC (Anvil Asgard destroyed)
+![The profit command: five sales, each showing where the cargo was bought, how long it was held, cost, revenue and profit; four write-offs; and the total profit](docs/example-profit.png)
 
-Cargo bought but not sold yet:
-  2026-10-12 02:55:44      1.00 SCU Dymantium     bought at PSS Theta for 20,528 aUEC, on Anvil Asgard
-      worth about 25,000 aUEC (+4,472) at Levski (Nyx, 10h ago, UEX)
+**`routes --scu 32`**: the best place to sell each commodity you can buy where you are, using UEX prices.
 
-Total profit: +377,156 aUEC
-```
+![The routes command for 32 SCU from HDMS-Hahn: Gold, Chlorine and Waste, with buy price, where to sell, sell price, profit per SCU, profit for the run and distance](docs/example-routes.png)
 
-**`routes --scu 32`**
-```
-Routes from Port Tressler (Stanton) for 32 SCU:
-  COMMODITY            BUY/SCU  SELL AT                  SELL/SCU   +/SCU  RUN PROFIT   DIST
-  Pressurized Ice        4,536  Baijini Point               6,700   2,164    +69,248  59 GM
-  Quartz                 3,563  Pyro Gateway (Stanton)      5,400   1,837    +58,784  68 GM
-```
+**`ships`**: each ship you've used, what's aboard and what it has traded, with destroyed ships listed separately.
 
-**`ships`**
-```
-ID             TYPE                             NAME         TRADES  LAST SEEN
-876944325094   Anvil Asgard                     Big Bertha        1  2026-10-13 01:51
-               aboard:  1 SCU Dymantium (cost 20,528)
-               traded:  Dymantium (1 SCU bought)
-
-Destroyed (claimed ships come back with a new ID):
-869668647419   Anvil Asgard                     -                 1  destroyed 2026-10-12 02:13
-               lost:    16 SCU Quartz (57,003 aUEC)
-```
+![The ships command: six ships with their ID, type, name, trade count and when they were last seen, then a destroyed Anvil Asgard and the 16 SCU of Quartz lost with it](docs/example-ships.png)
 
 ## Configuration
 
