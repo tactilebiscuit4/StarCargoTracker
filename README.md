@@ -73,6 +73,24 @@ The program is then `target\release\star-cargo-tracker.exe`. You can copy it any
 
 During development, `cargo run -- <command>` builds and runs in one step, and `cargo test` runs the tests.
 
+### Getting a UEX app token
+
+The program doesn't come with a UEX app token, so you'll need your own to **send your trades to your UEX account** (`uex sync`, see [Syncing with your UEX account](#syncing-with-your-uex-account)). UEX won't accept entries without one. Market data (`prices`, `routes`, `terminals` and the tips after each trade) works without a token.
+
+Tokens are free:
+
+1. **Sign in to [UEX](https://uexcorp.space)**, or create an account. UEX signs you in with Discord.
+2. **Open [My Apps](https://uexcorp.space/api/apps)** at `uexcorp.space/api/apps`. It isn't linked from your profile; you can also reach it from *My Apps* under *API 2.0* on the [API documentation](https://uexcorp.space/api/documentation/) page.
+3. **Create an app.** Any name works, e.g. `Star Cargo Tracker`. Leave **Client Version Lock** off: with it on, the token only works with the exact program versions you list, so it would stop working when you update.
+4. **Copy the app's token.**
+5. **Save it in the tracker**, at the `cargo>` prompt or in a terminal:
+   ```powershell
+   star-cargo-tracker uex token YOUR_TOKEN
+   ```
+   Or set the `STAR_CARGO_UEX_TOKEN` environment variable instead. Run `uex` to check: it should show **App token: set**.
+
+Keep the token to yourself. It's tied to your UEX account, and UEX limits how many requests each token can make.
+
 ## Quick start
 
 1. **Start tracking** before or after launching the game:
@@ -171,7 +189,7 @@ Each time the game starts, it moves the previous `Game.log` into the `logbackups
 ### Syncing with your UEX account
 1. On [uexcorp.space](https://uexcorp.space), copy your **secret key** from your profile. UEX only accepts entries from accounts verified with their RSI handle.
 2. Save it with `uex secret KEY`. Your secret key is yours alone: it's what writes to *your* wallet, so never share it.
-3. Sign in at [uexcorp.space/api/apps](https://uexcorp.space/api/apps) (it isn't linked from your profile), create an app, and save its token with `uex token TOKEN`. UEX requires one to accept entries.
+3. Get an app token and save it with `uex token TOKEN`: see [Getting a UEX app token](#getting-a-uex-app-token). UEX requires one to accept entries.
 
 Both are kept in your local database, never in the project folder; or set `STAR_CARGO_UEX_SECRET` and `STAR_CARGO_UEX_TOKEN` instead.
 4. `uex sync on` starts in **test mode**: UEX checks every entry but records nothing. Check `uex` shows no rejections.
