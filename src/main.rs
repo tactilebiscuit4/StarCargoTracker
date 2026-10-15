@@ -1,6 +1,7 @@
 mod banner;
 mod color;
 mod db;
+mod export;
 mod format;
 mod game;
 mod live;
@@ -49,6 +50,8 @@ Trades and profit:
                                           Recent trades and overall totals; trades that
                                           failed in the game are hidden unless --failed
   star-cargo-tracker profit               Profit per sale, losses, and unsold cargo
+  star-cargo-tracker export [PATH]        Save trades, profit, write-offs and ships to an
+                                          Excel workbook (default: your Documents folder)
   star-cargo-tracker cancel-trade ID      Stop counting a trade that didn't really happen,
                                           e.g. a sale whose cargo never went down the elevator
   star-cargo-tracker restore-trade ID     Count a cancelled trade again
@@ -163,7 +166,7 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
     let command = args.first()?.as_str();
     let valid = match command {
         "history" | "locations" | "profit" | "ships" | "import" | "routes" | "terminals"
-        | "game-folder" => true,
+        | "game-folder" | "export" => true,
         "prices" => args.len() > 1,
         "uex" => true,
         "link-terminal" => args.len() == 3,
@@ -198,6 +201,7 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
         "link-terminal" => link_terminal(db, &args[1], &args[2]),
         "uex" => uex_command(db, &args[1..])?,
         "profit" => show_profit(db),
+        "export" => export(db, &args[1..].join(" ")),
         "name-location" => name_location(db, &args[1], &args[2..].join(" ")),
         "ships" => list_ships(db),
         "name-ship" => name_ship(db, &args[1], &args[2..].join(" ")),
@@ -546,6 +550,27 @@ fn history(db: &Db, count: usize, show_failed: bool) -> ExitCode {
 
 fn load_report(db: &Db) -> rusqlite::Result<profit::Report> {
     Ok(profit::calculate(&db.completed_trades()?, &db.write_offs()?))
+}
+
+/// `export [PATH]`: saves everything to an Excel workbook.
+fn export(db: &Db, path: &str) -> ExitCode {
+    let path = if path.is_empty() { export::default_path() } else { export::resolve_path(Path::new(path)) };
+    match export::export(db, &path) {
+        Ok(done) => {
+            println!(
+                "Saved {} trades, {} sales and {} write-offs to {}",
+                done.trades,
+                done.sales,
+                done.write_offs,
+                color::bold(done.path.display())
+            );
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn show_profit(db: &Db) -> ExitCode {

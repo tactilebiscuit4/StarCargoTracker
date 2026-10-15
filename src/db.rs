@@ -240,6 +240,15 @@ impl Db {
         rows.collect()
     }
 
+    /// Every trade, including failed and cancelled ones, oldest first, for exporting.
+    pub fn all_trades(&self) -> rusqlite::Result<Vec<StoredTrade>> {
+        let mut stmt = self
+            .conn
+            .prepare(&format!("SELECT {STORED_TRADE_COLUMNS} FROM trades ORDER BY timestamp, id"))?;
+        let rows = stmt.query_map([], stored_trade_from_row)?;
+        rows.collect()
+    }
+
     /// The location code of the most recent trade, if any trade has one.
     pub fn last_location(&self) -> rusqlite::Result<Option<String>> {
         self.conn

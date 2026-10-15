@@ -26,6 +26,7 @@ There's no typing in numbers and no screenshots: buy and sell at commodity termi
 - Lists cargo you've bought but not sold yet.
 - **Ship destroyed with you aboard?** The cargo on it is written off as a loss automatically. A claimed ship comes back with a new ID, and the name you gave the old one passes to it.
 - Record other losses by hand with `write-off`, and `cancel-trade` any sale that never paid out.
+- `export` saves everything to an Excel workbook: a summary, every trade, sales with their profit, write-offs, unsold cargo and ships, each on its own sheet with filters.
 
 **Market data from [UEX](https://uexcorp.space)**
 - After a **purchase**: where that commodity sells best, and roughly what this load would make.
@@ -101,6 +102,7 @@ Run any of these as `star-cargo-tracker <command>`, or type them at the `cargo>`
 |---|---|
 | `history [COUNT] [--failed]` | Recent trades and overall totals. Failed trades are hidden unless `--failed`. |
 | `profit` | Profit per sale, write-offs, unsold cargo (with estimated value) and total profit. |
+| `export [PATH]` | Save everything to an Excel workbook (`.xlsx`). With no PATH it goes in your Documents folder as `Star Cargo Tracker YYYY-MM-DD.xlsx`; PATH can be a file or a folder. Times are in your time zone. |
 | `cancel-trade ID` | Stop counting a trade that didn't really happen, e.g. a sale whose cargo never went down the freight elevator. |
 | `restore-trade ID` | Count a cancelled trade again. |
 | `write-off COMMODITY SCU\|all [NOTE]` | Record cargo you lost. Partial names work: `write-off sil 40 jettisoned`. |
@@ -216,6 +218,7 @@ Everything is stored in a local SQLite database, and re-reading a log never reco
 | `src/live.rs` | The tracking loop shared by `watch` and `overlay` |
 | `src/db.rs` | SQLite storage |
 | `src/profit.rs` | Matches sales to purchases; profit and losses |
+| `src/export.rs` | The Excel export |
 | `src/uex.rs` | UEX market data and its cache |
 | `src/uex_sync.rs` | Sending trades to your UEX wallet and trade history |
 | `src/overlay.rs` | The on-screen overlay |
@@ -237,7 +240,7 @@ Everything is stored in a local SQLite database, and re-reading a log never reco
 - Market data: [UEX Corp](https://uexcorp.space), a community-run Star Citizen trading database.
 - Commodity names: the [Star Citizen Wiki API](https://api.star-citizen.wiki).
 - Overlay font: [Share Tech Mono](https://fonts.google.com/specimen/Share+Tech+Mono) by Carrois Type Design, used under the SIL Open Font License 1.1 (see `assets/fonts/ShareTechMono-OFL.txt`).
-- Built with [egui/eframe](https://github.com/emilk/egui), [rusqlite](https://github.com/rusqlite/rusqlite), [rustyline](https://github.com/kkawakam/rustyline), [ureq](https://github.com/algesten/ureq) and other excellent Rust crates.
+- Built with [egui/eframe](https://github.com/emilk/egui), [rusqlite](https://github.com/rusqlite/rusqlite), [rustyline](https://github.com/kkawakam/rustyline), [ureq](https://github.com/algesten/ureq), [rust_xlsxwriter](https://github.com/jmcnamara/rust_xlsxwriter) and other excellent Rust crates.
 
 ## Disclaimer
 

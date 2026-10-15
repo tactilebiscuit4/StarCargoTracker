@@ -34,6 +34,7 @@ Tracking:
 Trades and profit:
   history [COUNT] [--failed]    Recent trades and totals (--failed also shows failed ones)
   profit                        Profit per sale, losses, and unsold cargo
+  export [PATH]                 Save everything to an Excel workbook (default: Documents)
   cancel-trade ID               Stop counting a trade that didn't really happen
   restore-trade ID              Count a cancelled trade again
   write-off COMMODITY SCU|all [NOTE]
@@ -76,6 +77,7 @@ const COMMANDS: &[&str] = &[
     "cancel-trade",
     "delete-write-off",
     "exit",
+    "export",
     "game-folder",
     "help",
     "history",
