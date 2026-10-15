@@ -2,7 +2,7 @@
   <img src="docs/banner.svg" alt="STAR CARGO TRACKER, in the block lettering of the program's banner" width="608">
 </p>
 
-A Windows command-line tool, written in Rust, that tracks your **Star Citizen** commodity trading automatically. It reads the game's log file as you play and records every purchase and sale. It works out profit per run, tracks which ship your cargo is on, writes off cargo lost when a ship is destroyed, and can show it all in an overlay on top of the game.
+A command-line tool for Windows and Linux, written in Rust, that tracks your **Star Citizen** commodity trading automatically. It reads the game's log file as you play and records every purchase and sale. It works out profit per run, tracks which ship your cargo is on, writes off cargo lost when a ship is destroyed, and can show it all in an overlay on top of the game.
 
 There's no typing in numbers and no screenshots: buy and sell at commodity terminals as usual and the tracker picks it up.
 
@@ -53,7 +53,7 @@ There's no typing in numbers and no screenshots: buy and sell at commodity termi
 
 ## Requirements
 
-- **Windows 10 or 11** (the overlay, console handling and default paths are Windows-specific).
+- **Windows 10 or 11**, or **Linux** (x86-64) with the game running under Wine or Proton; see [Linux](#linux).
 - **Star Citizen**. For the overlay to show over the game, set **Graphics → Window Mode** to **Borderless**: an exclusive-fullscreen game can't have windows drawn over it.
 - To build from source:
   - [Rust](https://rustup.rs) (stable, 1.82 or newer) with the MSVC toolchain.
@@ -102,6 +102,24 @@ Keep the token to yourself. It's tied to your UEX account, and UEX limits how ma
 3. At the `cargo>` prompt, try `profit`, `history`, `ships` or `routes`.
 4. **Load your earlier sessions** once with `import`, which reads the game's `logbackups` folder.
 5. Type `overlay on` to show the overlay, and `exit` (or press Ctrl+C) to stop.
+
+## Linux
+
+Each release also has a Linux build, `star-cargo-tracker-linux-x86_64.tar.gz`. It's built on Ubuntu 22.04, so it runs on that and newer distributions.
+
+```bash
+tar -xzf star-cargo-tracker-linux-x86_64.tar.gz
+cd star-cargo-tracker
+./star-cargo-tracker
+```
+
+Everything works as on Windows, with these differences:
+
+- **Finding the game.** Star Citizen runs under Wine, so the tracker looks inside Wine prefixes: `$WINEPREFIX`, `~/Games/star-citizen` (the [LUG Helper](https://github.com/starcitizen-lug/lug-helper)'s default), other folders in `~/Games` (e.g. Lutris), `~/.wine`, and Steam's Proton prefixes. If yours is elsewhere, point it at the install, e.g. `game-folder "~/Games/star-citizen/drive_c/Program Files/Roberts Space Industries"`.
+- **Your data** is kept in `~/.local/share/star-cargo-tracker/trades.db` (or under `$XDG_DATA_HOME`), and `export` saves to your Documents folder.
+- **The overlay is best-effort.** It opens as a small transparent window in the top-right corner. On X11 that usually works over a borderless game. On Wayland, apps can't choose where their windows go or keep themselves above a fullscreen game, so it may appear elsewhere or behind the game. Everything else works without it.
+
+To build it yourself, install Rust and the libraries the overlay builds against (on Ubuntu or Debian: `sudo apt install build-essential pkg-config libxkbcommon-dev libwayland-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libgl1-mesa-dev`), then `cargo build --release`.
 
 ## Commands
 
@@ -204,7 +222,7 @@ If UEX turns out to update your wallet from trade-history entries too, use `uex 
 ### Environment variables
 | Variable | Purpose |
 |---|---|
-| `STAR_CARGO_DB` | Where to keep the database. Default: `%APPDATA%\star-cargo-tracker\trades.db`. |
+| `STAR_CARGO_DB` | Where to keep the database. Default: `%APPDATA%\star-cargo-tracker\trades.db` on Windows, `~/.local/share/star-cargo-tracker/trades.db` on Linux. |
 | `STAR_CARGO_UEX_TOKEN` | UEX app token ([uexcorp.space/api/apps](https://uexcorp.space/api/apps)), instead of saving one with `uex token`. |
 | `STAR_CARGO_UEX_SECRET` | Your UEX secret key, as an alternative to `uex secret`. |
 | `STAR_CARGO_UEX_URL` | UEX API address, if it changes (must be `https://`). Default: `https://api.uexcorp.uk/2.0`. |

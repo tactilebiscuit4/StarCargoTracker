@@ -34,6 +34,14 @@ jobs:
       - name: Build
         run: cargo build --release --locked
 
+      - name: Check the program runs
+        env:
+          STAR_CARGO_DB: ${{ runner.temp }}/smoke.db
+        run: |
+          ./target/release/star-cargo-tracker help
+          ./target/release/star-cargo-tracker history
+          ./target/release/star-cargo-tracker export "$RUNNER_TEMP/smoke.xlsx"
+
       - name: Package
         run: |
           mkdir -p dist/star-cargo-tracker
