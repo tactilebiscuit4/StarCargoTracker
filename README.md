@@ -105,7 +105,7 @@ Keep the token to yourself. It's tied to your UEX account, and UEX limits how ma
 
 ## Linux
 
-Each release also has a Linux build, `star-cargo-tracker-linux-x86_64.tar.gz`. It's built on Ubuntu 22.04, so it runs on that and newer distributions.
+Each release also has a Linux build for x86-64, `star-cargo-tracker-linux-x86_64.tar.gz`. It's built and tested on Ubuntu 22.04, so it should run on Ubuntu, Debian and their derivatives from around that age onwards. It may well work on other distributions too: it has been run on Arch, for example.
 
 ```bash
 tar -xzf star-cargo-tracker-linux-x86_64.tar.gz
@@ -119,7 +119,25 @@ Everything works as on Windows, with these differences:
 - **Your data** is kept in `~/.local/share/star-cargo-tracker/trades.db` (or under `$XDG_DATA_HOME`), and `export` saves to your Documents folder.
 - **The overlay is best-effort.** It opens as a small transparent window in the top-right corner. On X11 that usually works over a borderless game. On Wayland, apps can't choose where their windows go or keep themselves above a fullscreen game, so it may appear elsewhere or behind the game. Everything else works without it.
 
-To build it yourself, install Rust and the libraries the overlay builds against (on Ubuntu or Debian: `sudo apt install build-essential pkg-config libxkbcommon-dev libwayland-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libgl1-mesa-dev`), then `cargo build --release`.
+### Building on Linux
+
+1. Install [Rust](https://rustup.rs) (stable).
+2. Install a C compiler and the libraries the overlay builds against. On Ubuntu or Debian, which the release builds use:
+   ```bash
+   sudo apt install build-essential pkg-config libxkbcommon-dev libwayland-dev \
+     libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libgl1-mesa-dev
+   ```
+   On other distributions, install the equivalent packages. On Arch, for example:
+   ```bash
+   sudo pacman -S --needed base-devel libxkbcommon wayland libxcb mesa
+   ```
+3. Build it:
+   ```bash
+   git clone https://github.com/tactilebiscuit4/StarCargoTracker.git
+   cd StarCargoTracker
+   cargo build --release
+   ```
+   The program is then `target/release/star-cargo-tracker`.
 
 ## Commands
 
