@@ -40,6 +40,8 @@ pub enum Notice {
     /// A destroyed ship's name passed to a new ship of the same type,
     /// most likely its claimed replacement.
     ShipNamed { ship_id: String, class: String, name: String },
+    /// Trades were sent to (or reversed on) your UEX account, or UEX said no.
+    UexSync(crate::uex_sync::Report),
 }
 
 #[derive(Debug, Clone)]

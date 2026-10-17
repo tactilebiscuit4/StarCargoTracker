@@ -61,9 +61,10 @@ Trades and profit:
 
 Market (UEX data):
   star-cargo-tracker prices COMMODITY     Where to buy it cheapest and sell it best
-  star-cargo-tracker routes [FROM] [--scu N]
+  star-cargo-tracker routes [FROM] [--scu N] [--budget AMOUNT]
                                           Most profitable runs from where you are (or FROM),
-                                          for your ship's cargo space (or N SCU)
+                                          for your ship's cargo space (or N SCU);
+                                          with --budget, only what AMOUNT aUEC can buy (e.g. 250k)
   star-cargo-tracker terminals [SEARCH]   UEX terminals matched to your locations, or search them
   star-cargo-tracker link-terminal LOCATION ID
                                           Use UEX terminal ID for a location (its name as
@@ -297,7 +298,11 @@ fn track(log: PathBuf, with_overlay: bool) -> ExitCode {
     live::install_ctrlc_handler();
     let overlay_starts = overlay::start_requests();
     // Sends trades to your UEX account in the background, if switched on.
-    uex_sync::start_background(|report| shell::print_background(&sync_report_text(report)));
+    uex_sync::start_background(|report| {
+        let notice = Notice::UexSync(report.clone());
+        print_notice(&notice);
+        overlay::forward(&notice);
+    });
 
     let tracking = thread::spawn(move || {
         let db = match open_db() {
@@ -374,6 +379,7 @@ fn notice_text(notice: &Notice) -> String {
             ))
         ),
         Notice::Stopping => writeln!(out, "{}", color::grey("Confirming the last trade before stopping...")),
+        Notice::UexSync(report) => write!(out, "{}", sync_report_text(report)),
         Notice::Trade(trade) => {
             let line = TradeLine {
                 id: trade.id,
@@ -1013,11 +1019,18 @@ fn show_prices(db: &Db, wanted: &str) -> ExitCode {
 /// Returns `None` for malformed arguments.
 fn show_routes(db: &Db, args: &[String]) -> Option<ExitCode> {
     let mut scu: Option<f64> = None;
+    let mut budget: Option<f64> = None;
     let mut from = Vec::new();
     let mut words = args.iter();
     while let Some(word) = words.next() {
         if word == "--scu" {
             scu = Some(words.next()?.parse().ok().filter(|n: &f64| *n > 0.0)?);
+        } else if word == "--budget" || word == "--spend" {
+            let Some(amount) = words.next().and_then(|w| format::parse_auec(w)) else {
+                eprintln!("--budget needs an amount of aUEC, e.g. --budget 250000 or --budget 250k.");
+                return Some(ExitCode::FAILURE);
+            };
+            budget = Some(amount);
         } else {
             from.push(word.as_str());
         }
@@ -1093,8 +1106,9 @@ fn show_routes(db: &Db, args: &[String]) -> Option<ExitCode> {
             return Some(ExitCode::FAILURE);
         }
     };
-    let load = |r: &uex::Route| capacity.map_or(r.stock, |c| c.min(r.stock));
+    let load = |r: &uex::Route| r.load(capacity, budget);
     let profit = |r: &uex::Route| (r.sell - r.buy) * load(r);
+    let any_on_offer = !routes.is_empty();
     routes.retain(|r| load(r) > 0.0);
     routes.sort_by(|a, b| profit(b).total_cmp(&profit(a)));
     // Only the best place to sell each commodity, so one doesn't fill the list.
@@ -1106,32 +1120,64 @@ fn show_routes(db: &Db, args: &[String]) -> Option<ExitCode> {
     });
 
     let system = origins.first().map(|t| t.system.clone()).unwrap_or_default();
+    let spending = budget.map(|b| format!(", spending up to {} aUEC", format::auec(b))).unwrap_or_default();
     println!(
         "{} {} {}",
         color::bold(format!("Routes from {place}")),
         color::cyan(format!("({system})")),
-        color::grey(format!("for {carrying}:")),
+        color::grey(format!("for {carrying}{spending}:")),
     );
     if routes.is_empty() {
-        println!("  {}", color::grey("UEX knows no profitable routes from here."));
+        let why = match budget {
+            Some(b) if any_on_offer => format!("{} aUEC doesn't buy a full SCU of anything profitable here.", format::auec(b)),
+            _ => "UEX knows no profitable routes from here.".to_string(),
+        };
+        println!("  {}", color::grey(why));
         return Some(ExitCode::SUCCESS);
     }
+    // With a budget, how much each run buys and costs differs, so show it.
+    let budget_columns = |scu: &str, cost: &str| {
+        if budget.is_some() {
+            format!(" {scu:>7} {cost:>11}")
+        } else {
+            String::new()
+        }
+    };
     println!(
         "{}",
         color::bold(format!(
-            "  {:<28} {:>9}  {:<38} {:>9} {:>9} {:>12} {:>7}",
-            "COMMODITY", "BUY/SCU", "SELL AT", "SELL/SCU", "+/SCU", "RUN PROFIT", "DIST"
+            "  {:<28} {:>9}  {:<38} {:>9} {:>9}{} {:>12} {:>7}",
+            "COMMODITY",
+            "BUY/SCU",
+            "SELL AT",
+            "SELL/SCU",
+            "+/SCU",
+            budget_columns("SCU", "COST"),
+            "RUN PROFIT",
+            "DIST"
         ))
     );
     for route in routes.iter().take(12) {
-        let destination = if route.destination_system.eq_ignore_ascii_case(&system) {
+        // Some names already say the system, e.g. "Stanton Gateway (Pyro)".
+        let destination = if route.destination_system.eq_ignore_ascii_case(&system)
+            || route.destination.ends_with(&format!("({})", route.destination_system))
+        {
             route.destination.clone()
         } else {
             format!("{} ({})", route.destination, route.destination_system)
         };
-        let short_load = capacity.is_some_and(|c| route.stock < c);
+        // Less on offer than your cargo space and budget would otherwise take.
+        let room = [capacity, budget.map(|b| (b / route.buy).floor())]
+            .into_iter()
+            .flatten()
+            .fold(f64::INFINITY, f64::min);
+        let short_load = room.is_finite() && route.stock < room;
+        let scu_and_cost = color::grey(budget_columns(
+            &format::scu(load(route)),
+            &format::auec(load(route) * route.buy),
+        ));
         println!(
-            "  {} {}  {:<38} {} {} {} {}{}",
+            "  {} {}  {:<38} {} {}{scu_and_cost} {} {}{}",
             color::bold(format!("{:<28}", route.commodity)),
             color::red(format!("{:>9}", format::auec(route.buy))),
             destination,
@@ -1258,11 +1304,20 @@ fn link_terminal(db: &Db, location: &str, id: &str) -> ExitCode {
 fn sync_report_text(report: &uex_sync::Report) -> String {
     let mut out = String::new();
     if report.sent + report.reversed > 0 {
-        let mut done = format!("sent {} entr{}", report.sent, if report.sent == 1 { "y" } else { "ies" });
-        if report.reversed > 0 {
-            done.push_str(&format!(", reversed {} for cancelled trades", report.reversed));
+        let mut parts = Vec::new();
+        if report.sent > 0 {
+            parts.push(format!(
+                "sent {} entr{} for {}",
+                report.sent,
+                if report.sent == 1 { "y" } else { "ies" },
+                format::trade_ids(&report.sent_trades)
+            ));
         }
-        out.push_str(&format!("{} {done}\n", color::green("UEX account:")));
+        if report.reversed > 0 {
+            parts.push(format!("reversed {} for cancelled {}", report.reversed, format::trade_ids(&report.reversed_trades)));
+        }
+        let test = if report.test { color::grey(" (test mode: nothing recorded)") } else { String::new() };
+        out.push_str(&format!("{} {}{test}\n", color::green("UEX account:"), parts.join(", ")));
     }
     for rejected in &report.rejected {
         // Per-trade rejections start with the trade's ID; account problems don't.

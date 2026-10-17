@@ -166,7 +166,7 @@ Run any of these as `star-cargo-tracker <command>`, or type them at the `cargo>`
 | Command | What it does |
 |---|---|
 | `prices COMMODITY` | The 10 cheapest places to buy it and the 10 best places to sell it, with stock and how old each price is. |
-| `routes [FROM] [--scu N]` | The most profitable runs from where you are (or `FROM`), for your ship's cargo space (or `N` SCU). |
+| `routes [FROM] [--scu N] [--budget AMOUNT]` | The most profitable runs from where you are (or `FROM`), for your ship's cargo space (or `N` SCU). With `--budget`, only as much as `AMOUNT` aUEC can buy (`250000`, `250,000` or `250k`), sorted by the profit that makes, with how many SCU and what they cost. |
 | `terminals [SEARCH]` | Which UEX terminal each of your trade locations matched, or search UEX's terminals. |
 | `link-terminal LOCATION ID` | Tie one of your locations to a UEX terminal by hand, when it isn't matched automatically. LOCATION is its name as `terminals` shows it (quotes optional) or its code: `link-terminal Port Tressler 66`. |
 

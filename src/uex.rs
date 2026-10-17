@@ -231,6 +231,21 @@ pub struct Route {
     pub distance: f64,
 }
 
+impl Route {
+    /// How many SCU to buy: what's on offer, limited to the cargo space and
+    /// to whole SCU the budget pays for, if given.
+    pub fn load(&self, capacity: Option<f64>, budget: Option<f64>) -> f64 {
+        let mut load = self.stock;
+        if let Some(capacity) = capacity {
+            load = load.min(capacity);
+        }
+        if let Some(budget) = budget.filter(|_| self.buy > 0.0) {
+            load = load.min((budget / self.buy).floor());
+        }
+        load.max(0.0)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Downloading and caching
 
@@ -761,6 +776,26 @@ pub fn routes_from(db: &Db, origins: &[Terminal]) -> Result<Vec<Route>, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_route_load_is_limited_by_stock_space_and_budget() {
+        let route = Route {
+            commodity: "Gold".into(),
+            origin: "HDMS-Hahn".into(),
+            destination: "TDD Area 18".into(),
+            destination_system: "Stanton".into(),
+            buy: 28_928.0,
+            sell: 31_000.0,
+            stock: 50.0,
+            distance: 23.0,
+        };
+        assert_eq!(route.load(None, None), 50.0);
+        assert_eq!(route.load(Some(32.0), None), 32.0);
+        // 250,000 buys 8 whole SCU at 28,928 each.
+        assert_eq!(route.load(Some(32.0), Some(250_000.0)), 8.0);
+        assert_eq!(route.load(None, Some(10_000_000.0)), 50.0);
+        assert_eq!(route.load(Some(32.0), Some(1_000.0)), 0.0);
+    }
 
     fn terminal(id: i64, name: &str) -> Terminal {
         Terminal {

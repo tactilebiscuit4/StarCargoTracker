@@ -43,7 +43,9 @@ Trades and profit:
 
 Market (UEX data):
   prices COMMODITY              Where to buy it cheapest and sell it best
-  routes [FROM] [--scu N]       Most profitable runs from here (or FROM) for your cargo space
+  routes [FROM] [--scu N] [--budget AMOUNT]
+                                Most profitable runs from here (or FROM) for your cargo space,
+                                and with --budget, for what AMOUNT aUEC can buy (e.g. 250k)
   terminals [SEARCH]            UEX terminals for your locations, or search them
   link-terminal LOCATION ID     Use UEX terminal ID for a location (its name or code)
 
@@ -315,7 +317,7 @@ impl Completions {
             ("overlay", 1) => return vec![plain("on"), plain("off")],
             ("write-off", 2) => return vec![plain("all")],
             ("history", 1 | 2) | ("locations", 1) => return vec![plain("--failed")],
-            ("routes", _) => return vec![plain("--scu")],
+            ("routes", _) => return vec![plain("--scu"), plain("--budget")],
             ("uex", 1) => {
                 return ["status", "secret", "token", "sync", "live", "test", "wallet", "history", "push", "send-past", "forget"]
                     .iter()

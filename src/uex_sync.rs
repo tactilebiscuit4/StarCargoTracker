@@ -122,10 +122,15 @@ pub fn config(db: &Db) -> Config {
 }
 
 /// What a sync run did.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Report {
     pub sent: usize,
     pub reversed: usize,
+    /// IDs of the trades sent and reversed this run, oldest first.
+    pub sent_trades: Vec<i64>,
+    pub reversed_trades: Vec<i64>,
+    /// Sent in test mode, so nothing was really recorded.
+    pub test: bool,
     /// Entries UEX rejected this run, with why.
     pub rejected: Vec<String>,
     /// Set if UEX couldn't be reached.
@@ -174,6 +179,7 @@ pub fn sync(db: &Db, force: bool) -> Report {
     // E.g. a secret key from the environment, never saved with `uex secret`.
     mark_start(db);
     let config = config(db);
+    report.test = !config.live;
     if !force && LAST_OFFLINE.lock().unwrap().is_some_and(|at| at.elapsed() < RETRY_AFTER) {
         report.offline = Some("waiting to retry".into());
         return report;
@@ -226,9 +232,14 @@ pub fn sync(db: &Db, force: bool) -> Report {
             match result {
                 Ok(remote_id) => {
                     record(db, trade.id, target, config.live, remote_id, action == Action::Reverse, None);
-                    match action {
-                        Action::Send => report.sent += 1,
-                        Action::Reverse => report.reversed += 1,
+                    let (count, ids) = match action {
+                        Action::Send => (&mut report.sent, &mut report.sent_trades),
+                        Action::Reverse => (&mut report.reversed, &mut report.reversed_trades),
+                    };
+                    *count += 1;
+                    // A trade can go to both the wallet and the trade history.
+                    if !ids.contains(&trade.id) {
+                        ids.push(trade.id);
                     }
                 }
                 // A problem with the account, not this trade: stop and say so.

@@ -228,6 +228,7 @@ impl Overlay {
                 GREY,
             )],
             Notice::Trade(trade) => trade_lines(&trade),
+            Notice::UexSync(report) => sync_lines(&report),
             Notice::ShipDestroyed(loss) => {
                 let mut lines = vec![(format!("{} destroyed", loss.ship_name), RED)];
                 if loss.lost.is_empty() {
@@ -255,6 +256,27 @@ impl Overlay {
             self.items.remove(0);
         }
     }
+}
+
+/// What a send to your UEX account did, e.g. "Synced to UEX: #21, #22".
+fn sync_lines(report: &crate::uex_sync::Report) -> Vec<(String, Color32)> {
+    let test = if report.test { " (test mode)" } else { "" };
+    let mut lines = Vec::new();
+    if !report.sent_trades.is_empty() {
+        lines.push((format!("Synced to UEX{test}: {}", format::trade_ids(&report.sent_trades)), GREEN));
+    }
+    if !report.reversed_trades.is_empty() {
+        lines.push((format!("Reversed on UEX{test}: {}", format::trade_ids(&report.reversed_trades)), GREY));
+    }
+    for rejected in &report.rejected {
+        // Per-trade rejections start with the trade's ID; account problems don't.
+        let text = if rejected.starts_with('#') { format!("UEX rejected {rejected}") } else { rejected.clone() };
+        lines.push((text, AMBER));
+    }
+    if report.offline.as_deref().is_some_and(|why| why != "waiting to retry") {
+        lines.push(("Can't reach UEX; will retry".to_string(), AMBER));
+    }
+    lines
 }
 
 fn trade_lines(trade: &live::TradeNotice) -> Vec<(String, Color32)> {
@@ -526,5 +548,37 @@ mod position {
             let path = String::from_utf16_lossy(&buffer[..len as usize]);
             path.rsplit(['\\', '/']).next().map(str::to_string)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::uex_sync::Report;
+
+    #[test]
+    fn shows_what_a_sync_did() {
+        let report = Report {
+            sent: 4,
+            sent_trades: vec![21, 22],
+            reversed: 1,
+            reversed_trades: vec![15],
+            rejected: vec!["#23 wallet: invalid_price".into()],
+            ..Report::default()
+        };
+        assert_eq!(
+            sync_lines(&report),
+            vec![
+                ("Synced to UEX: #21, #22".to_string(), GREEN),
+                ("Reversed on UEX: #15".to_string(), GREY),
+                ("UEX rejected #23 wallet: invalid_price".to_string(), AMBER),
+            ]
+        );
+
+        let test_mode = Report { sent: 1, sent_trades: vec![30], test: true, ..Report::default() };
+        assert_eq!(sync_lines(&test_mode), vec![("Synced to UEX (test mode): #30".to_string(), GREEN)]);
+
+        let offline = Report { offline: Some("timeout".into()), ..Report::default() };
+        assert_eq!(sync_lines(&offline), vec![("Can't reach UEX; will retry".to_string(), AMBER)]);
     }
 }
