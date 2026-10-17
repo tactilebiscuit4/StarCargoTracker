@@ -65,8 +65,9 @@ Market (UEX data):
                                           Most profitable runs from where you are (or FROM),
                                           for your ship's cargo space (or N SCU)
   star-cargo-tracker terminals [SEARCH]   UEX terminals matched to your locations, or search them
-  star-cargo-tracker link-terminal CODE ID
-                                          Use UEX terminal ID for a location code
+  star-cargo-tracker link-terminal LOCATION ID
+                                          Use UEX terminal ID for a location (its name as
+                                          terminals shows it, or its code)
 
 UEX account (sends your trades to your UEX wallet and trade history):
   star-cargo-tracker uex                  Show syncing status, what's been sent, and your balance
@@ -170,7 +171,7 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
         | "game-folder" | "export" => true,
         "prices" => args.len() > 1,
         "uex" => true,
-        "link-terminal" => args.len() == 3,
+        "link-terminal" => args.len() >= 3,
         "name-location" | "write-off" | "name-ship" => args.len() > 2,
         "delete-write-off" | "cancel-trade" | "restore-trade" => args.len() == 2,
         _ => false,
@@ -199,7 +200,7 @@ fn run_command(db: &Db, args: &[String]) -> Option<ExitCode> {
         "prices" => show_prices(db, &args[1..].join(" ")),
         "routes" => show_routes(db, &args[1..])?,
         "terminals" => show_terminals(db, &args[1..].join(" ")),
-        "link-terminal" => link_terminal(db, &args[1], &args[2]),
+        "link-terminal" => link_terminal(db, &args[1..args.len() - 1].join(" "), &args[args.len() - 1]),
         "uex" => uex_command(db, &args[1..])?,
         "profit" => show_profit(db),
         "export" => export(db, &args[1..].join(" ")),
@@ -1166,10 +1167,13 @@ fn show_terminals(db: &Db, search: &str) -> ExitCode {
             return ExitCode::SUCCESS;
         }
         println!("{}", color::bold("UEX terminals for your trade locations:"));
+        let mut unmatched = None;
         for (code, _, _) in &locations {
             let found = uex::terminals_at(db, code);
+            let name = locations::display_name(db, code);
             let terminals = if found.is_empty() {
-                color::amber("none found: link one with `link-terminal`")
+                unmatched.get_or_insert_with(|| name.clone());
+                color::amber("none found")
             } else {
                 found
                     .iter()
@@ -1177,7 +1181,17 @@ fn show_terminals(db: &Db, search: &str) -> ExitCode {
                     .collect::<Vec<_>>()
                     .join(", ")
             };
-            println!("  {:<42} {terminals}", locations::display_name(db, code));
+            println!("  {name:<30} {} {terminals}", color::grey(format!("{code:<34}")));
+        }
+        if let Some(name) = unmatched {
+            println!();
+            println!(
+                "{}",
+                color::grey(format!(
+                    "Find a terminal with `terminals NAME`, then link it, e.g. {}",
+                    shell::command_hint(&format!("link-terminal \"{name}\" ID"))
+                ))
+            );
         }
         return ExitCode::SUCCESS;
     }
@@ -1196,18 +1210,37 @@ fn show_terminals(db: &Db, search: &str) -> ExitCode {
         );
     }
     println!();
-    println!("{}", color::grey("Link one to a location with: link-terminal CODE ID"));
+    println!("{}", color::grey("Link one to a location with: link-terminal LOCATION ID"));
     ExitCode::SUCCESS
 }
 
-fn link_terminal(db: &Db, code: &str, id: &str) -> ExitCode {
+/// `link-terminal LOCATION ID`, where LOCATION is a trade location's name as
+/// `terminals` shows it, or its code.
+fn link_terminal(db: &Db, location: &str, id: &str) -> ExitCode {
     let Ok(id) = id.trim_start_matches('#').parse::<i64>() else {
         eprintln!("Terminal ID must be a number; find it with `terminals NAME`.");
         return ExitCode::FAILURE;
     };
-    match uex::link_terminal(db, code, id) {
+    let Some(code) = locations::find(db, location) else {
+        eprintln!(
+            "\"{location}\" isn't one of your trade locations. Use a name as `terminals` shows it, e.g. {}",
+            shell::command_hint("link-terminal \"Port Tressler\" 66")
+        );
+        return ExitCode::FAILURE;
+    };
+    match uex::link_terminal(db, &code, id) {
         Ok(Some(terminal)) => {
-            println!("{code} is now {} ({}) for UEX prices.", terminal.name, terminal.system);
+            // Many names already end with the system, e.g. "Terra Gateway (Stanton)".
+            let system = if terminal.name.contains(&terminal.system) {
+                String::new()
+            } else {
+                format!(" ({})", terminal.system)
+            };
+            println!(
+                "{} is now {}{system} for UEX prices.",
+                locations::display_name(db, &code),
+                terminal.name,
+            );
             ExitCode::SUCCESS
         }
         Ok(None) => {

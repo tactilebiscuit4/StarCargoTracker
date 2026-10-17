@@ -45,7 +45,7 @@ Market (UEX data):
   prices COMMODITY              Where to buy it cheapest and sell it best
   routes [FROM] [--scu N]       Most profitable runs from here (or FROM) for your cargo space
   terminals [SEARCH]            UEX terminals for your locations, or search them
-  link-terminal CODE ID         Use UEX terminal ID for a location code
+  link-terminal LOCATION ID     Use UEX terminal ID for a location (its name or code)
 
 UEX account (sends your trades to your UEX wallet and trade history):
   uex                           Syncing status, what's been sent, and your balance

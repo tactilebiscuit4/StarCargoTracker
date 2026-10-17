@@ -33,6 +33,25 @@ pub fn trade_place(db: &Db, trade: &TradeRequest) -> String {
     }
 }
 
+/// One of your trade locations, given as its code (`RR_JP_StantonMagnus`) or
+/// the name it's shown by (`Magnus Gateway (Stanton)`), ignoring case.
+/// Returns its code.
+pub fn find(db: &Db, given: &str) -> Option<String> {
+    let codes: Vec<String> = db.trade_locations().ok()?.into_iter().map(|(code, _, _)| code).collect();
+    let named: Vec<(String, String)> = codes.into_iter().map(|code| (display_name(db, &code), code)).collect();
+    match_location(given, &named).map(str::to_string)
+}
+
+/// `locations` are (shown name, code) pairs.
+fn match_location<'a>(given: &str, locations: &'a [(String, String)]) -> Option<&'a str> {
+    let given = given.trim().trim_matches('"');
+    locations
+        .iter()
+        .find(|(_, code)| code.eq_ignore_ascii_case(given))
+        .or_else(|| locations.iter().find(|(name, _)| name.eq_ignore_ascii_case(given)))
+        .map(|(_, code)| code.as_str())
+}
+
 fn builtin_name(code: &str) -> Option<String> {
     if let Some((_, name)) = KNOWN.iter().find(|(known, _)| *known == code) {
         return Some(name.to_string());
@@ -103,5 +122,19 @@ mod tests {
         for (code, expected) in cases {
             assert_eq!(builtin_name(code).as_deref(), expected, "{code}");
         }
+    }
+
+    #[test]
+    fn finds_a_location_by_code_or_shown_name() {
+        let locations = [
+            ("Magnus Gateway (Stanton)".to_string(), "RR_JP_StantonMagnus".to_string()),
+            ("Levski".to_string(), "Nyx_Levski".to_string()),
+        ];
+        assert_eq!(match_location("RR_JP_StantonMagnus", &locations), Some("RR_JP_StantonMagnus"));
+        assert_eq!(match_location("rr_jp_stantonmagnus", &locations), Some("RR_JP_StantonMagnus"));
+        assert_eq!(match_location("Magnus Gateway (Stanton)", &locations), Some("RR_JP_StantonMagnus"));
+        assert_eq!(match_location("\"magnus gateway (stanton)\"", &locations), Some("RR_JP_StantonMagnus"));
+        assert_eq!(match_location("levski", &locations), Some("Nyx_Levski"));
+        assert_eq!(match_location("Magnus", &locations), None);
     }
 }
