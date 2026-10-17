@@ -201,9 +201,9 @@ IDs like `#12` are shown by `history` (trades), `profit` (write-offs) and `ships
 
 ![The profit command: five sales, each showing where the cargo was bought, how long it was held, cost, revenue and profit; four write-offs; and the total profit](docs/example-profit.png)
 
-**`routes --scu 32`**: the best place to sell each commodity you can buy where you are, using UEX prices.
+**`routes --budget 100k`**: the best runs from where you are for what you can spend, with how many SCU each buys and what they cost, using UEX prices.
 
-![The routes command for 32 SCU from HDMS-Hahn: Gold, Chlorine and Waste, with buy price, where to sell, sell price, profit per SCU, profit for the run and distance](docs/example-routes.png)
+![The routes command from Baijini Point for 96 SCU with a 100,000 aUEC budget: Hephaestanite, Waste and Scrap, each with how many SCU the budget buys, what that costs, and the profit for the run](docs/example-routes-budget.png)
 
 **`ships`**: each ship you've used, what's aboard and what it has traded, with destroyed ships listed separately.
 
