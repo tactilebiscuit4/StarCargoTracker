@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <title>Star Cargo Tracker</title>
+  <!-- The 16x16 version of icon.svg, simplified to stay readable. -->
+  <rect width="16" height="16" rx="3" fill="#0d1117"/>
+  <g fill="#e6edf3">
+    <rect x="11" y="1" width="1" height="5"/>
+    <rect x="9" y="3" width="5" height="1"/>
+  </g>
+  <g fill="#5ac8dc">
+    <rect x="2" y="7" width="12" height="2"/>
+    <rect x="2" y="9" width="1" height="5"/>
+    <rect x="13" y="9" width="1" height="5"/>
+    <rect x="2" y="13" width="12" height="1"/>
+    <rect x="6" y="10" width="1" height="2"/>
+    <rect x="9" y="10" width="1" height="2"/>
+  </g>
+</svg>

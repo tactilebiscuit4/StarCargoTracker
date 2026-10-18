@@ -279,6 +279,8 @@ Everything is stored in a local SQLite database, and re-reading a log never reco
 | `src/shell.rs` | The `cargo>` prompt and Tab completion |
 | `src/names.rs`, `locations.rs`, `ships.rs` | Readable names for commodities, places and ships |
 | `src/banner.rs`, `color.rs`, `format.rs` | Banner, terminal colours and number formatting |
+| `assets/icon/` | The program's icon: drawn as SVG on 16, 24 and 32 pixel grids, packed into `star-cargo-tracker.ico` |
+| `build.rs` | Embeds the icon and version details in the Windows exe |
 
 ## Limitations
 

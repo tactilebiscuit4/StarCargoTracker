@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" shape-rendering="crispEdges">
+  <title>Star Cargo Tracker</title>
+  <!-- The 24x24 version of icon.svg, so its pixels stay even. -->
+  <rect width="24" height="24" rx="5" fill="#0d1117"/>
+  <g fill="#8c8c8c">
+    <rect x="4" y="4" width="1" height="1"/>
+    <rect x="9" y="2" width="1" height="1"/>
+    <rect x="21" y="9" width="1" height="1"/>
+  </g>
+  <g fill="#e6edf3">
+    <rect x="17" y="1" width="1" height="7"/>
+    <rect x="14" y="4" width="7" height="1"/>
+    <rect x="16" y="3" width="3" height="3"/>
+  </g>
+  <g fill="#5ac8dc">
+    <rect x="4" y="9" width="15" height="2"/>
+    <rect x="4" y="11" width="2" height="8"/>
+    <rect x="17" y="11" width="2" height="8"/>
+    <rect x="4" y="19" width="15" height="2"/>
+    <rect x="8" y="12" width="1" height="6"/>
+    <rect x="11" y="12" width="1" height="6"/>
+    <rect x="14" y="12" width="1" height="6"/>
+  </g>
+</svg>
