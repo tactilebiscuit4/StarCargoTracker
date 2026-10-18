@@ -130,7 +130,8 @@ pub fn run_window() -> Result<(), String> {
             .with_mouse_passthrough(true)
             .with_taskbar(false)
             .with_resizable(false)
-            .with_active(false),
+            .with_active(false)
+            .with_icon(icon()),
         ..Default::default()
     };
 
@@ -150,6 +151,12 @@ pub fn run_window() -> Result<(), String> {
     // However the window closed, make sure tracking finishes too.
     live::request_stop();
     result.map_err(|e| e.to_string())
+}
+
+/// The program's icon (assets/icon), for where Windows shows the window,
+/// such as Alt+Tab.
+fn icon() -> egui::IconData {
+    eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon/icon-256.png")).unwrap_or_default()
 }
 
 /// Share Tech Mono for a HUD look (SIL Open Font License, see
@@ -465,14 +472,47 @@ mod position {
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        EnumWindows, FindWindowW, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible,
-        SetWindowPos, HWND_TOPMOST, SWP_NOACTIVATE,
+        EnumWindows, FindWindowW, GetSystemMetrics, GetWindowRect, GetWindowThreadProcessId,
+        IsWindowVisible, LoadImageW, SendMessageW, SetWindowPos, HWND_TOPMOST, ICON_BIG,
+        ICON_SMALL, IMAGE_ICON, LR_DEFAULTCOLOR, SM_CXICON, SM_CXSMICON, SM_CYICON, SM_CYSMICON,
+        SWP_NOACTIVATE, WM_SETICON,
     };
 
     const GAME_EXE: &str = "StarCitizen.exe";
     /// Gap between the overlay and the screen edge, in pixels.
     const MARGIN: i32 = 24;
+    /// The icon's resource ID in the exe (see build.rs).
+    const ICON_ID: u16 = 1;
+
+    static ICONS_SET: AtomicBool = AtomicBool::new(false);
+
+    /// eframe sets only the small icon, from one large image that Windows
+    /// shrinks; Alt+Tab shows the large one. This sets both from the icon
+    /// built into the exe, whose small sizes are drawn by hand.
+    ///
+    /// SAFETY: `window` must be a valid window handle.
+    unsafe fn set_icons(window: HWND) {
+        if ICONS_SET.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        for (kind, width, height) in [(ICON_BIG, SM_CXICON, SM_CYICON), (ICON_SMALL, SM_CXSMICON, SM_CYSMICON)] {
+            let icon = LoadImageW(
+                GetModuleHandleW(ptr::null()),
+                ICON_ID as usize as *const u16, // MAKEINTRESOURCEW
+                IMAGE_ICON,
+                GetSystemMetrics(width),
+                GetSystemMetrics(height),
+                LR_DEFAULTCOLOR,
+            );
+            if !icon.is_null() {
+                SendMessageW(window, WM_SETICON, kind as usize, icon as isize);
+            }
+        }
+    }
 
     /// Sizes the overlay to `width` x `height` pixels and moves it to the
     /// top-right of the monitor the game is on, or of the primary monitor if
@@ -487,6 +527,7 @@ mod position {
             if overlay.is_null() {
                 return;
             }
+            set_icons(overlay);
             let monitor = match find_game_window() {
                 Some(game) => MonitorFromWindow(game, MONITOR_DEFAULTTONEAREST),
                 None => MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY),
@@ -555,6 +596,13 @@ mod position {
 mod tests {
     use super::*;
     use crate::uex_sync::Report;
+
+    #[test]
+    fn loads_the_window_icon() {
+        let icon = icon();
+        assert_eq!((icon.width, icon.height), (256, 256));
+        assert_eq!(icon.rgba.len(), 256 * 256 * 4);
+    }
 
     #[test]
     fn shows_what_a_sync_did() {
